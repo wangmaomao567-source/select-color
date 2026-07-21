@@ -1,0 +1,1885 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="随机生成编织包花朵配色的单页互动工具" />
+  <title>编织花朵配色生成器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+          },
+          boxShadow: {
+            soft: '0 24px 80px rgba(27, 35, 54, .12)',
+            glow: '0 18px 56px rgba(219, 93, 146, .18)',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    :root {
+      --bg-a: #f8f3ec;
+      --bg-b: #edf5f1;
+      --ink: #202735;
+      --muted: #707888;
+      --glass: rgba(255, 255, 255, .62);
+      --glass-strong: rgba(255, 255, 255, .84);
+      --line: rgba(255, 255, 255, .74);
+      --shadow: rgba(36, 42, 58, .13);
+      --accent: #c65b86;
+      --accent-soft: #f5dbe6;
+      --cursor: rgba(198, 91, 134, .78);
+    }
+
+    html.dark {
+      --bg-a: #111722;
+      --bg-b: #1a2530;
+      --ink: #edf2f5;
+      --muted: #aab5bf;
+      --glass: rgba(28, 35, 48, .58);
+      --glass-strong: rgba(30, 38, 52, .86);
+      --line: rgba(255, 255, 255, .12);
+      --shadow: rgba(0, 0, 0, .28);
+      --accent: #e08bad;
+      --accent-soft: rgba(224, 139, 173, .16);
+      --cursor: rgba(224, 139, 173, .86);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 16% 10%, rgba(255, 211, 221, .52), transparent 34%),
+        radial-gradient(circle at 82% 18%, rgba(194, 226, 214, .54), transparent 30%),
+        linear-gradient(135deg, var(--bg-a), var(--bg-b));
+      overflow-x: hidden;
+      cursor: default;
+      transition: background .5s ease-out, color .5s ease-out;
+    }
+
+    button, a, input, textarea, [role="button"], .interactive {
+      cursor: pointer;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -2;
+      background:
+        linear-gradient(120deg, rgba(255, 255, 255, .18), transparent 28%, rgba(255, 255, 255, .14) 62%, transparent),
+        radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 30%), rgba(255, 255, 255, .28), transparent 24rem);
+      animation: flowBackground 18s ease-in-out infinite alternate;
+    }
+
+    @keyframes flowBackground {
+      from { filter: hue-rotate(0deg) saturate(1); transform: translate3d(0, 0, 0) scale(1); }
+      to { filter: hue-rotate(12deg) saturate(1.05); transform: translate3d(0, -1.2%, 0) scale(1.03); }
+    }
+
+    #loader {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 42% 35%, rgba(246, 197, 215, .8), transparent 28%),
+        linear-gradient(135deg, #faf5ef, #edf6f2);
+      transition: opacity .7s ease-out, visibility .7s ease-out;
+    }
+
+    html.dark #loader {
+      background:
+        radial-gradient(circle at 42% 35%, rgba(119, 62, 87, .52), transparent 28%),
+        linear-gradient(135deg, #111722, #182331);
+    }
+
+    #loader.is-hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .loader-flower {
+      width: 78px;
+      height: 78px;
+      position: relative;
+      animation: bloomSpin 1.6s ease-in-out infinite;
+    }
+
+    .loader-flower span,
+    .flower-petal {
+      position: absolute;
+      border-radius: 999px 999px 999px 240px;
+      transform-origin: 50% 100%;
+      box-shadow: inset 0 2px 12px rgba(255, 255, 255, .36);
+    }
+
+    .loader-flower span {
+      left: 27px;
+      top: 4px;
+      width: 24px;
+      height: 42px;
+      background: #f0a8c5;
+    }
+
+    .loader-flower span:nth-child(2) { transform: rotate(72deg); }
+    .loader-flower span:nth-child(3) { transform: rotate(144deg); }
+    .loader-flower span:nth-child(4) { transform: rotate(216deg); }
+    .loader-flower span:nth-child(5) { transform: rotate(288deg); }
+
+    .loader-flower::after {
+      content: '';
+      position: absolute;
+      left: 27px;
+      top: 27px;
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: #f3d35e;
+      box-shadow: 0 8px 20px rgba(175, 124, 22, .2);
+    }
+
+    @keyframes bloomSpin {
+      0%, 100% { transform: scale(.96) rotate(0deg); }
+      50% { transform: scale(1.05) rotate(18deg); }
+    }
+
+    .glass {
+      background: var(--glass);
+      border: 1px solid var(--line);
+      box-shadow: 0 18px 60px var(--shadow);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+    }
+
+    .glass-strong {
+      background: var(--glass-strong);
+      border: 1px solid var(--line);
+      box-shadow: 0 22px 70px var(--shadow);
+      backdrop-filter: blur(26px);
+      -webkit-backdrop-filter: blur(26px);
+    }
+
+    .nav-scrolled {
+      height: 68px;
+      background: var(--glass-strong);
+      box-shadow: 0 16px 42px var(--shadow);
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translate3d(0, 36px, 0);
+      transition: opacity .8s ease-out, transform .8s ease-out;
+      will-change: opacity, transform;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+
+    .hover-lift {
+      transition: transform .28s ease-out, box-shadow .28s ease-out, border-color .28s ease-out, opacity .28s ease-out;
+      will-change: transform;
+    }
+
+    .hover-lift:hover {
+      transform: translate3d(0, -4px, 0);
+      box-shadow: 0 26px 84px rgba(28, 34, 48, .16);
+    }
+
+    .soft-button {
+      min-height: 44px;
+      border-radius: 999px;
+      transition: transform .25s ease-out, box-shadow .25s ease-out, background .25s ease-out, opacity .25s ease-out;
+      touch-action: manipulation;
+    }
+
+    .soft-button:hover {
+      transform: translate3d(0, -2px, 0);
+      box-shadow: 0 14px 34px rgba(198, 91, 134, .18);
+    }
+
+    .soft-button:active,
+    .tap-feedback {
+      transform: scale(.96);
+    }
+
+    #particleCanvas {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      opacity: .48;
+    }
+
+    .bag-preview {
+      position: relative;
+      min-height: 620px;
+      overflow: hidden;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, .32), rgba(255, 255, 255, .08)),
+        radial-gradient(circle at 50% 40%, rgba(242, 217, 195, .48), transparent 48%);
+    }
+
+    .reference-strip {
+      position: absolute;
+      left: 1rem;
+      top: 1rem;
+      display: flex;
+      gap: .5rem;
+      z-index: 2;
+    }
+
+    .diary-entry {
+      border-left: 3px solid var(--accent);
+    }
+
+    .flat-showcase {
+      position: absolute;
+      inset: 4.2rem 1rem 5.6rem;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 2rem;
+      z-index: 1;
+    }
+
+    .flat-bag-card {
+      container-type: inline-size;
+      position: relative;
+      overflow: hidden;
+      border-radius: 1.4rem;
+      border: 1px solid rgba(194, 164, 151, .28);
+      background:
+        radial-gradient(circle at 48% 28%, rgba(255, 255, 255, .44), transparent 42%),
+        linear-gradient(145deg, rgba(244, 232, 225, .82), rgba(226, 238, 230, .62));
+      box-shadow: inset 0 2px 18px rgba(255, 255, 255, .28), 0 22px 62px rgba(57, 44, 36, .1);
+    }
+
+    .flat-bag-card::before {
+      content: none;
+    }
+
+    .flat-bag-label {
+      position: absolute;
+      left: 1rem;
+      top: 1rem;
+      z-index: 3;
+      border-radius: 999px;
+      padding: .45rem .75rem;
+      font-size: .75rem;
+      font-weight: 700;
+      background: rgba(255, 255, 255, .55);
+      backdrop-filter: blur(10px);
+    }
+
+    .stagger-grid {
+      --cell: clamp(24px, 8cqw, 42px);
+      --gap: clamp(5px, 1.45cqw, 8px);
+      position: absolute;
+      left: 50%;
+      top: 55%;
+      width: calc((var(--cell) * 8) + (var(--gap) * 7) + (var(--cell) / 2));
+      height: calc((var(--cell) * 8) + (var(--gap) * 7));
+      transform: translate(-50%, -50%);
+    }
+
+    .grid-cell {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      width: var(--cell);
+      height: var(--cell);
+      border: 1.5px solid rgba(126, 112, 111, .46);
+      border-radius: 3px;
+      background: rgba(249, 242, 235, .68);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .62), 0 6px 12px rgba(74, 61, 57, .06);
+      transition: transform .22s ease-out, border-color .22s ease-out, background .22s ease-out, box-shadow .22s ease-out;
+    }
+
+    .grid-cell:hover,
+    .grid-cell.selected-cell {
+      transform: translate3d(0, -2px, 0);
+      border-color: var(--accent);
+      background: rgba(255, 247, 241, .9);
+      box-shadow: 0 13px 28px rgba(198, 91, 134, .18);
+    }
+
+    .grid-cell.has-flower {
+      border-color: rgba(126, 112, 111, .34);
+      background: rgba(238, 226, 215, .74);
+    }
+
+    .grid-cell.base-flower {
+      border-color: rgba(116, 132, 125, .46);
+    }
+
+    .grid-cell.today-flower {
+      border-color: rgba(198, 91, 134, .78);
+      box-shadow: 0 0 0 3px rgba(198, 91, 134, .12), 0 12px 24px rgba(198, 91, 134, .16);
+    }
+
+    .tool-chip.active {
+      background: var(--accent-soft);
+      border-color: rgba(198, 91, 134, .55);
+      box-shadow: 0 12px 28px rgba(198, 91, 134, .14);
+    }
+
+    .flat-flower {
+      position: relative;
+      width: min(118%, 52px);
+      height: min(118%, 52px);
+      transform: rotate(var(--turn, 0deg));
+      filter: drop-shadow(0 9px 13px rgba(31, 38, 51, .16));
+      transition: transform .25s ease-out, filter .25s ease-out, opacity .25s ease-out;
+      z-index: var(--z, 2);
+      pointer-events: none;
+    }
+
+    .grid-cell:hover .flat-flower {
+      transform: rotate(var(--turn, 0deg)) scale(1.06);
+      filter: drop-shadow(0 14px 18px rgba(31, 38, 51, .2));
+    }
+
+    .flat-petal {
+      position: absolute;
+      left: 38%;
+      top: 4%;
+      width: 24%;
+      height: 52%;
+      border-radius: 999px 999px 999px 260px;
+      background: var(--petal);
+      transform-origin: 50% 88%;
+      transform: rotate(calc(var(--i) * 60deg));
+      box-shadow: inset 0 2px 8px rgba(255, 255, 255, .34), inset 0 -4px 8px rgba(0, 0, 0, .08);
+      outline: 1px solid rgba(122, 103, 99, .12);
+    }
+
+    .flat-center {
+      position: absolute;
+      left: 36%;
+      top: 36%;
+      width: 28%;
+      height: 28%;
+      border-radius: 999px;
+      background: var(--center);
+      border: 2px solid rgba(255, 255, 255, .55);
+      box-shadow: inset 0 2px 7px rgba(255, 255, 255, .34), 0 5px 10px rgba(31, 38, 51, .14);
+    }
+
+    .bag-body {
+      position: absolute;
+      left: 50%;
+      top: 56%;
+      width: min(380px, 72vw);
+      aspect-ratio: 1 / .9;
+      transform: translate(-50%, -50%);
+      border-radius: 28px 28px 44px 44px;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, .28) 1px, transparent 1px) 0 0 / 18px 18px,
+        linear-gradient(0deg, rgba(255, 255, 255, .22) 1px, transparent 1px) 0 0 / 18px 18px,
+        linear-gradient(145deg, rgba(216, 194, 168, .56), rgba(188, 159, 132, .38));
+      box-shadow:
+        inset 0 2px 12px rgba(255, 255, 255, .32),
+        inset 0 -16px 30px rgba(83, 66, 50, .1),
+        0 28px 80px rgba(67, 52, 44, .18);
+    }
+
+    .bag-body::before {
+      content: '';
+      position: absolute;
+      left: 17%;
+      right: 17%;
+      top: -29%;
+      height: 55%;
+      border: 18px solid rgba(188, 159, 132, .42);
+      border-bottom: 0;
+      border-radius: 999px 999px 0 0;
+      box-shadow: inset 0 8px 14px rgba(255, 255, 255, .16);
+    }
+
+    .flower {
+      position: absolute;
+      width: 104px;
+      height: 104px;
+      border-radius: 50%;
+      filter: drop-shadow(0 16px 26px rgba(29, 35, 45, .16));
+      transition: transform .35s ease-out, filter .35s ease-out;
+      transform: translate(-50%, -50%) rotate(var(--turn, 0deg));
+      will-change: transform;
+    }
+
+    .flower:hover {
+      transform: translate(-50%, -54%) rotate(var(--turn, 0deg)) scale(1.05);
+      filter: drop-shadow(0 22px 34px rgba(29, 35, 45, .2));
+    }
+
+    .flower-petal {
+      left: 38px;
+      top: 4px;
+      width: 30px;
+      height: 54px;
+      background: var(--petal);
+      transform: rotate(calc(var(--i) * 60deg));
+      box-shadow:
+        inset 0 3px 12px rgba(255, 255, 255, .34),
+        inset 0 -5px 10px rgba(0, 0, 0, .08);
+    }
+
+    .flower-center {
+      position: absolute;
+      left: 35px;
+      top: 35px;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: var(--center);
+      border: 2px solid rgba(255, 255, 255, .42);
+      box-shadow:
+        inset 0 3px 8px rgba(255, 255, 255, .38),
+        0 8px 18px rgba(20, 26, 36, .14);
+    }
+
+    .swatch {
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      border: 2px solid rgba(255, 255, 255, .72);
+      box-shadow: inset 0 2px 8px rgba(255, 255, 255, .25), 0 8px 18px rgba(25, 30, 40, .12);
+    }
+
+    input[type="range"] {
+      appearance: none;
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #92bde2, #f0b3ca, #ecd266, #91c9a1);
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      background: #fff;
+      border: 4px solid var(--accent);
+      box-shadow: 0 8px 20px rgba(29, 35, 45, .22);
+      transition: transform .2s ease-out;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.08);
+    }
+
+    .modal {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity .28s ease-out, visibility .28s ease-out;
+    }
+
+    .modal.open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      max-height: calc(100vh - 2rem);
+      overflow-y: auto;
+      transform: translate3d(0, 20px, 0) scale(.98);
+      transition: transform .28s ease-out;
+    }
+
+    .modal.open .modal-card {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    .toast {
+      transform: translate3d(-50%, 20px, 0);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform .32s ease-out, opacity .32s ease-out;
+    }
+
+    .toast.show {
+      transform: translate3d(-50%, 0, 0);
+      opacity: 1;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        cursor: auto;
+      }
+
+      button, a, input, textarea, [role="button"], .interactive {
+        cursor: pointer;
+      }
+
+      .bag-preview {
+        min-height: 700px;
+      }
+
+      .flat-showcase {
+        inset: 4.1rem .75rem 5.8rem;
+        grid-template-columns: 1fr;
+        gap: 1.2rem;
+      }
+
+      .flat-flower {
+        width: min(118%, 42px);
+        height: min(118%, 42px);
+      }
+
+      .flower {
+        width: 86px;
+        height: 86px;
+      }
+
+      .flower-petal {
+        left: 31px;
+        width: 25px;
+        height: 45px;
+      }
+
+      .flower-center {
+        left: 29px;
+        top: 29px;
+        width: 29px;
+        height: 29px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="loader" aria-label="页面加载中">
+    <div class="text-center">
+      <div class="loader-flower mx-auto" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p class="mt-5 text-sm tracking-[.18em] uppercase" style="color: var(--muted);">Preparing colors</p>
+    </div>
+  </div>
+
+  <canvas id="particleCanvas"></canvas>
+
+  <header id="navbar" class="fixed left-1/2 top-4 z-50 flex h-[76px] w-[min(1120px,calc(100%-24px))] -translate-x-1/2 items-center justify-between rounded-full px-4 transition-all duration-300 ease-out md:px-6 glass">
+    <a href="#home" class="interactive flex items-center gap-3 rounded-full px-2 py-2 transition duration-300 ease-out hover:bg-white/20">
+      <span class="grid h-10 w-10 place-items-center rounded-full text-white shadow-glow" style="background: linear-gradient(135deg, #d8759d, #8fb9dd);">
+        <i class="fa-solid fa-spa"></i>
+      </span>
+      <span class="hidden sm:block">
+        <span class="block text-sm font-semibold">花朵配色</span>
+        <span class="block text-xs" style="color: var(--muted);">Crochet Palette</span>
+      </span>
+    </a>
+    <nav class="hidden items-center gap-1 md:flex">
+      <a class="nav-link rounded-full px-4 py-2 text-sm transition hover:bg-white/20" href="#generator">生成</a>
+      <a class="nav-link rounded-full px-4 py-2 text-sm transition hover:bg-white/20" href="#notes">记录</a>
+    </nav>
+    <div class="flex items-center gap-2">
+      <button id="themeToggle" class="soft-button interactive grid h-11 w-11 place-items-center bg-white/35 text-sm glass" aria-label="切换深浅色">
+        <i class="fa-solid fa-moon"></i>
+      </button>
+      <button id="openModal" class="soft-button interactive hidden items-center gap-2 px-4 text-sm font-semibold text-white sm:flex" style="background: linear-gradient(135deg, #c65b86, #8fb9dd);">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        说明
+      </button>
+    </div>
+  </header>
+
+  <aside class="fixed right-3 top-1/2 z-40 hidden -translate-y-1/2 flex-col gap-3 md:flex">
+    <button id="quickGenerate" class="soft-button interactive grid h-12 w-12 place-items-center glass" aria-label="快速生成">
+      <i class="fa-solid fa-shuffle"></i>
+    </button>
+    <button id="copyFloating" class="soft-button interactive grid h-12 w-12 place-items-center glass" aria-label="复制配色">
+      <i class="fa-regular fa-copy"></i>
+    </button>
+    <button id="favoriteBtn" class="soft-button interactive grid h-12 w-12 place-items-center glass" aria-label="确定今日配色">
+      <i class="fa-solid fa-circle-check"></i>
+    </button>
+  </aside>
+
+  <main id="home" class="relative mx-auto w-full max-w-7xl px-4 pb-24 pt-28 sm:px-6 lg:px-8">
+    <section class="grid min-h-[calc(100vh-7rem)] items-center gap-8 py-8">
+      <div class="reveal parallax" data-speed=".12">
+        <p class="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium glass">
+          <i class="fa-solid fa-calendar-day" style="color: var(--accent);"></i>
+          今日三朵花 · <span id="todayText"></span>
+        </p>
+        <h1 class="max-w-3xl text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
+          给编织包生成一组<br class="hidden sm:block" />
+          克制又明亮的花朵配色
+        </h1>
+        <p class="mt-6 max-w-2xl text-base leading-8 sm:text-lg" style="color: var(--muted);">
+          从蓝色、白色、粉色、黄色、绿色、玫红色里，为每天三朵花随机搭配花瓣和花蕊。可以锁定喜欢的花、调整协调度，并一键复制当天方案。
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <button id="generateBtn" class="soft-button interactive inline-flex items-center gap-3 px-6 font-semibold text-white shadow-glow" style="background: linear-gradient(135deg, #c65b86, #86b7d8);">
+            <i class="fa-solid fa-dice"></i>
+            生成今日配色
+          </button>
+          <a href="#generator" class="soft-button interactive inline-flex items-center gap-3 px-6 font-semibold glass">
+            <i class="fa-solid fa-eye-dropper"></i>
+            调整细节
+          </a>
+        </div>
+        <div class="mt-10 grid max-w-xl grid-cols-3 gap-3">
+          <div class="hover-lift rounded-[1.25rem] p-4 glass">
+            <p class="text-3xl font-semibold counter" data-target="6">0</p>
+            <p class="mt-1 text-xs" style="color: var(--muted);">毛线颜色</p>
+          </div>
+          <div class="hover-lift rounded-[1.25rem] p-4 glass">
+            <p class="text-3xl font-semibold counter" data-target="3">0</p>
+            <p class="mt-1 text-xs" style="color: var(--muted);">每日花朵</p>
+          </div>
+          <div class="hover-lift rounded-[1.25rem] p-4 glass">
+            <p class="text-3xl font-semibold counter" id="comboCounter" data-target="90">0</p>
+            <p class="mt-1 text-xs" style="color: var(--muted);">可选组合</p>
+          </div>
+        </div>
+      </div>
+
+      <section id="generator" class="reveal parallax rounded-[2rem] p-3 glass-strong" data-speed=".05" aria-label="配色生成器">
+        <div id="swipeArea" class="bag-preview rounded-[1.55rem]">
+          <div class="flat-showcase" aria-label="正反两面平面包包预览">
+            <div class="flat-bag-card" aria-label="包包正面">
+              <span class="flat-bag-label">正面</span>
+              <div id="frontFaceLayer" class="stagger-grid"></div>
+            </div>
+            <div class="flat-bag-card" aria-label="包包反面">
+              <span class="flat-bag-label">反面</span>
+              <div id="backFaceLayer" class="stagger-grid"></div>
+            </div>
+          </div>
+          <div id="flowerLayer" class="hidden"></div>
+          <div class="reference-strip">
+            <span class="rounded-full px-3 py-2 text-xs font-semibold glass">正反面 8×8 空白格</span>
+            <span id="nextSlotLabel" class="rounded-full px-3 py-2 text-xs font-semibold glass">先选花，再点格子</span>
+          </div>
+          <div class="absolute bottom-4 right-4 z-[3] flex gap-2">
+            <button id="prevScheme" class="soft-button interactive grid h-11 w-11 place-items-center bg-white/20 glass" aria-label="上一组">
+              <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <button id="nextScheme" class="soft-button interactive grid h-11 w-11 place-items-center bg-white/20 glass" aria-label="下一组">
+              <i class="fa-solid fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section id="step0" class="reveal rounded-[1.75rem] p-5 sm:p-6 glass-strong">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="text-sm font-medium" style="color: var(--accent);">Step 0</p>
+          <h2 class="mt-1 text-2xl font-semibold">录入当前正反面花朵</h2>
+          <p class="mt-2 max-w-2xl text-sm leading-7" style="color: var(--muted);">切到第 0 步后，自由选择花瓣和花蕊颜色，再点上方任意格子录入当前已经完成的花。用擦除工具可以清掉某个格子后重新填。</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="baseModeBtn" class="tool-chip active soft-button interactive inline-flex items-center gap-2 px-4 text-sm font-semibold glass">
+            <i class="fa-solid fa-layer-group"></i>
+            第 0 步
+          </button>
+          <button id="todayModeBtn" class="tool-chip soft-button interactive inline-flex items-center gap-2 px-4 text-sm font-semibold glass">
+            <i class="fa-solid fa-calendar-day"></i>
+            今日三朵
+          </button>
+        </div>
+      </div>
+      <div class="mt-6 grid gap-5 lg:grid-cols-[1fr_1fr_auto]">
+        <div>
+          <p class="text-sm font-semibold">花瓣颜色</p>
+          <div id="basePetalTools" class="mt-3 flex flex-wrap gap-2"></div>
+        </div>
+        <div>
+          <p class="text-sm font-semibold">花蕊颜色</p>
+          <div id="baseCenterTools" class="mt-3 flex flex-wrap gap-2"></div>
+        </div>
+        <div class="flex flex-wrap items-end gap-2">
+          <button id="eraserBtn" class="tool-chip soft-button interactive inline-flex items-center gap-2 px-4 text-sm font-semibold glass">
+            <i class="fa-solid fa-eraser"></i>
+            擦除
+          </button>
+          <button id="saveBaseBtn" class="soft-button interactive inline-flex items-center gap-2 px-4 text-sm font-semibold text-white" style="background: linear-gradient(135deg, #c65b86, #91c9a1);">
+            <i class="fa-solid fa-floppy-disk"></i>
+            确认保存第 0 步
+          </button>
+        </div>
+      </div>
+      <div id="step0Status" class="mt-5 rounded-[1.25rem] p-4 text-sm leading-7 glass" style="color: var(--muted);"></div>
+    </section>
+
+    <section class="grid gap-6 py-10 lg:grid-cols-[1.08fr_.92fr]">
+      <div class="reveal rounded-[1.75rem] p-5 sm:p-6 glass-strong">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p class="text-sm font-medium" style="color: var(--accent);">Daily Plan</p>
+            <h2 class="mt-1 text-2xl font-semibold">三朵花配色清单</h2>
+          </div>
+          <div class="flex gap-2">
+            <button id="copyBtn" class="soft-button interactive inline-flex items-center gap-2 px-4 text-sm font-semibold glass">
+              <i class="fa-regular fa-copy"></i>
+              复制
+            </button>
+            <button id="resetLocks" class="soft-button interactive inline-flex items-center gap-2 px-4 text-sm font-semibold glass">
+              <i class="fa-solid fa-unlock"></i>
+              解锁
+            </button>
+          </div>
+        </div>
+        <div id="flowerCards" class="mt-6 grid gap-4 md:grid-cols-3"></div>
+      </div>
+
+      <div class="reveal rounded-[1.75rem] p-5 sm:p-6 glass-strong">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <p class="text-sm font-medium" style="color: var(--accent);">Harmony</p>
+            <h2 class="mt-1 text-2xl font-semibold">协调度控制</h2>
+          </div>
+          <span id="harmonyValue" class="rounded-full px-3 py-1 text-sm font-semibold glass">72%</span>
+        </div>
+        <label class="mt-7 block text-sm font-medium" for="harmonyRange">柔和与对比的平衡</label>
+        <input id="harmonyRange" class="mt-4 interactive" type="range" min="35" max="95" value="72" />
+        <div class="mt-5 h-3 overflow-hidden rounded-full bg-white/30">
+          <div id="progressBar" class="h-full rounded-full transition-all duration-700 ease-out" style="width: 72%; background: linear-gradient(90deg, #8fb9dd, #e6aec4, #91c9a1);"></div>
+        </div>
+
+        <div class="mt-7 rounded-[1.25rem] p-4 glass">
+          <button id="accordionToggle" class="interactive flex w-full items-center justify-between text-left">
+            <span>
+              <span class="block text-sm font-semibold">配色规则</span>
+              <span class="mt-1 block text-xs" style="color: var(--muted);">展开查看随机生成时的筛选逻辑</span>
+            </span>
+            <i id="accordionIcon" class="fa-solid fa-chevron-down transition-transform duration-300 ease-out"></i>
+          </button>
+          <div id="accordionPanel" class="grid max-h-0 overflow-hidden transition-all duration-500 ease-out">
+            <div class="pt-4 text-sm leading-7" style="color: var(--muted);">
+              花瓣和花蕊不会使用同色；白色更常作为过渡色，黄色更常作为花蕊；高协调度会减少玫红色与高饱和组合的连续出现，让整只包更统一。
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-5 grid grid-cols-2 gap-3">
+          <button id="softMode" class="tab-btn soft-button interactive bg-white/30 px-4 text-sm font-semibold glass" data-tab="soft">柔和</button>
+          <button id="brightMode" class="tab-btn soft-button interactive bg-white/10 px-4 text-sm font-semibold glass" data-tab="bright">明快</button>
+        </div>
+        <div id="tabText" class="mt-4 rounded-[1.25rem] p-4 text-sm leading-7 glass" style="color: var(--muted);">
+          柔和模式会优先选蓝、白、粉、绿做大面积花瓣，黄色和玫红色作为点睛。
+        </div>
+      </div>
+    </section>
+
+    <section id="notes" class="grid gap-6 py-10 lg:grid-cols-[.9fr_1.1fr]">
+      <div class="reveal rounded-[1.75rem] p-5 sm:p-6 glass-strong">
+        <p class="text-sm font-medium" style="color: var(--accent);">Today</p>
+        <h2 class="mt-1 text-2xl font-semibold">确定今天的配色</h2>
+        <div id="todayStatus" class="mt-5 rounded-[1.25rem] p-4 text-sm leading-7 glass" style="color: var(--muted);"></div>
+        <label class="mt-5 block text-sm font-medium" for="dailyNote">今日日记</label>
+        <textarea id="dailyNote" class="interactive mt-2 min-h-32 w-full resize-none rounded-2xl border border-white/40 bg-white/35 px-4 py-3 outline-none transition focus:border-pink-300 focus:bg-white/50 dark:bg-white/10" placeholder="比如：今天补正面右侧，下面两朵要贴紧，上面那朵压在中间。"></textarea>
+        <p id="dailyFeedback" class="mt-2 text-xs" style="color: var(--muted);">确认后会写入当天日记；同一天只能确定一组。</p>
+        <button id="openConfirmToday" class="soft-button interactive mt-6 inline-flex w-full items-center justify-center gap-3 px-5 font-semibold text-white" style="background: linear-gradient(135deg, #c65b86, #91c9a1);">
+          <i class="fa-solid fa-pen-nib"></i>
+          确定今天的配色并记录
+        </button>
+      </div>
+
+      <div class="reveal rounded-[1.75rem] p-5 sm:p-6 glass-strong">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-sm font-medium" style="color: var(--accent);">Diary</p>
+            <h2 class="mt-1 text-2xl font-semibold">编织日记</h2>
+          </div>
+          <button id="clearSaved" class="soft-button interactive grid h-11 w-11 place-items-center glass" aria-label="清空日记">
+            <i class="fa-regular fa-trash-can"></i>
+          </button>
+        </div>
+        <div id="savedList" class="mt-6 grid gap-3"></div>
+      </div>
+    </section>
+
+    <section id="sync" class="reveal rounded-[1.75rem] p-5 sm:p-6 glass-strong">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="text-sm font-medium" style="color: var(--accent);">Sync</p>
+          <h2 class="mt-1 text-2xl font-semibold">同步数据到手机</h2>
+          <p class="mt-2 max-w-2xl text-sm leading-7" style="color: var(--muted);">电脑端生成同步码并复制，手机端打开网页后粘贴导入。同步码只保存在你自己设备之间，不经过后端。</p>
+        </div>
+        <button id="copySyncBtn" class="soft-button interactive inline-flex items-center gap-2 px-4 text-sm font-semibold text-white" style="background: linear-gradient(135deg, #c65b86, #8fb9dd);">
+          <i class="fa-regular fa-copy"></i>
+          复制同步码
+        </button>
+      </div>
+      <div class="mt-5 grid gap-4 lg:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium" for="syncExport">电脑端同步码</label>
+          <textarea id="syncExport" class="interactive mt-2 min-h-36 w-full resize-none rounded-2xl border border-white/40 bg-white/35 px-4 py-3 text-xs leading-6 outline-none transition focus:border-pink-300 focus:bg-white/50 dark:bg-white/10" readonly></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium" for="syncImport">手机端粘贴到这里</label>
+          <textarea id="syncImport" class="interactive mt-2 min-h-36 w-full resize-none rounded-2xl border border-white/40 bg-white/35 px-4 py-3 text-xs leading-6 outline-none transition focus:border-pink-300 focus:bg-white/50 dark:bg-white/10" placeholder="粘贴电脑复制的同步码"></textarea>
+          <button id="importSyncBtn" class="soft-button interactive mt-3 inline-flex w-full items-center justify-center gap-2 px-4 text-sm font-semibold glass">
+            <i class="fa-solid fa-file-import"></i>
+            导入同步码
+          </button>
+        </div>
+      </div>
+      <div id="syncStatus" class="mt-4 rounded-[1.25rem] p-4 text-sm leading-7 glass" style="color: var(--muted);"></div>
+    </section>
+  </main>
+
+  <button id="backTop" class="soft-button interactive fixed bottom-5 right-5 z-40 grid h-12 w-12 translate-y-4 place-items-center opacity-0 glass" aria-label="回到顶部">
+    <i class="fa-solid fa-arrow-up"></i>
+  </button>
+
+  <div id="infoModal" class="modal fixed inset-0 z-[70] grid place-items-center bg-black/28 p-4">
+    <div class="modal-card w-full max-w-lg rounded-[1.75rem] p-6 glass-strong">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-sm font-medium" style="color: var(--accent);">How it works</p>
+          <h2 class="mt-1 text-2xl font-semibold">使用说明</h2>
+        </div>
+        <button id="closeModal" class="soft-button interactive grid h-11 w-11 place-items-center glass" aria-label="关闭弹窗">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <p class="mt-5 text-sm leading-7" style="color: var(--muted);">
+        点击生成会得到三朵花的花瓣与花蕊颜色。选择其中一朵后，直接点正面或反面的空白格，就能把这朵花放到对应位置。
+      </p>
+      <button id="modalGenerate" class="soft-button interactive mt-6 inline-flex w-full items-center justify-center gap-3 px-5 font-semibold text-white" style="background: linear-gradient(135deg, #c65b86, #8fb9dd);">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        现在生成一组
+      </button>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="modal fixed inset-0 z-[70] grid place-items-center bg-black/28 p-4">
+    <div class="modal-card w-full max-w-2xl rounded-[1.75rem] p-6 glass-strong">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-sm font-medium" style="color: var(--accent);">Confirm</p>
+          <h2 class="mt-1 text-2xl font-semibold">确认今天的三朵花</h2>
+        </div>
+        <button id="closeConfirmModal" class="soft-button interactive grid h-11 w-11 place-items-center glass" aria-label="关闭确认弹窗">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <p id="confirmSummary" class="mt-5 rounded-[1.25rem] p-4 text-sm leading-7 glass" style="color: var(--muted);"></p>
+      <button id="commitTodayBtn" class="soft-button interactive mt-6 inline-flex w-full items-center justify-center gap-3 px-5 font-semibold text-white" style="background: linear-gradient(135deg, #c65b86, #91c9a1);">
+        <i class="fa-solid fa-circle-check"></i>
+        确认并添加到包包
+      </button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast fixed bottom-7 left-1/2 z-[90] rounded-full px-5 py-3 text-sm font-semibold text-white shadow-soft" style="background: rgba(31, 38, 51, .88);"></div>
+
+  <script>
+    // Available yarn colors. The UI uses soft display colors so the result looks closer to matte yarn.
+    const yarns = [
+      { name: '蓝色', hex: '#8fb9dd', text: '安静清爽，适合做大面积花瓣', weight: 1.1, family: 'cool' },
+      { name: '白色', hex: '#f7f3ea', text: '柔和过渡，能压住高饱和颜色', weight: 1.25, family: 'neutral' },
+      { name: '粉色', hex: '#efb3c8', text: '温柔甜感，适合搭白色或绿色', weight: 1.15, family: 'warm' },
+      { name: '黄色', hex: '#ecd266', text: '明亮点睛，最适合做花蕊', weight: .95, family: 'warm' },
+      { name: '绿色', hex: '#91c9a1', text: '自然平衡，让包面更有呼吸感', weight: 1.05, family: 'cool' },
+      { name: '玫红色', hex: '#cf5f8e', text: '浓郁强调色，少量使用更高级', weight: .72, family: 'warm' },
+    ];
+
+    const state = {
+      scheme: [],
+      locked: [false, false, false],
+      harmony: 72,
+      mode: 'soft',
+      dailyEntries: JSON.parse(localStorage.getItem('crochetDailyEntries') || '{}'),
+      basePlacements: JSON.parse(localStorage.getItem('crochetBasePlacements') || '{"front":{},"back":{}}'),
+      baseSaved: localStorage.getItem('crochetBaseSaved') === 'true',
+      gridPlacements: JSON.parse(localStorage.getItem('crochetGridPlacements') || '{"front":{},"back":{}}'),
+      selectedFlowerIndex: 0,
+      editorMode: 'base',
+      selectedBasePetal: '蓝色',
+      selectedBaseCenter: '白色',
+      eraserMode: false,
+      schemeIndex: 0,
+    };
+    state.basePlacements.front = state.basePlacements.front || {};
+    state.basePlacements.back = state.basePlacements.back || {};
+    state.gridPlacements.front = state.gridPlacements.front || {};
+    state.gridPlacements.back = state.gridPlacements.back || {};
+
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+
+    const flowerPositions = [
+      { left: '39%', top: '49%', turn: '-14deg' },
+      { left: '58%', top: '45%', turn: '9deg' },
+      { left: '50%', top: '63%', turn: '22deg' },
+    ];
+
+    const GRID_SIZE = 8;
+
+    function initTheme() {
+      const savedTheme = localStorage.getItem('crochetTheme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.classList.toggle('dark', savedTheme ? savedTheme === 'dark' : prefersDark);
+      updateThemeIcon();
+    }
+
+    function updateThemeIcon() {
+      const icon = $('#themeToggle i');
+      icon.className = document.documentElement.classList.contains('dark') ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+    }
+
+    function weightedPick(items, getWeight) {
+      const total = items.reduce((sum, item) => sum + Math.max(.05, getWeight(item)), 0);
+      let marker = Math.random() * total;
+      for (const item of items) {
+        marker -= Math.max(.05, getWeight(item));
+        if (marker <= 0) return item;
+      }
+      return items[items.length - 1];
+    }
+
+    function colorScore(petal, center, usedPetals) {
+      let score = petal.weight;
+      const highHarmony = state.harmony / 100;
+
+      if (state.mode === 'soft' && ['白色', '蓝色', '粉色', '绿色'].includes(petal.name)) score += .38;
+      if (state.mode === 'bright' && ['黄色', '玫红色', '蓝色'].includes(petal.name)) score += .34;
+      if (usedPetals.includes(petal.name)) score -= .28 * highHarmony;
+      if (petal.name === '玫红色' && usedPetals.includes('玫红色')) score -= .7 * highHarmony;
+      if (center.name === '黄色') score += .22;
+      if (petal.family !== center.family) score += .14;
+      if (petal.name === '白色' && center.name === '黄色') score -= .18;
+      if (petal.name === '玫红色' && center.name === '黄色' && state.harmony > 74) score -= .2;
+
+      return score;
+    }
+
+    function generateFlower(index, usedPetals) {
+      const center = weightedPick(yarns, (item) => {
+        if (item.name === '黄色') return 1.7;
+        if (item.name === '白色') return .55;
+        if (item.name === '玫红色') return .85;
+        return 1;
+      });
+      const petalOptions = yarns.filter((item) => item.name !== center.name);
+      const petal = weightedPick(petalOptions, (item) => colorScore(item, center, usedPetals));
+      return { index, petal, center };
+    }
+
+    function generateScheme() {
+      const next = [...state.scheme];
+      const usedPetals = next.filter((_, index) => state.locked[index]).map((flower) => flower?.petal.name).filter(Boolean);
+
+      for (let i = 0; i < 3; i += 1) {
+        if (state.locked[i] && next[i]) continue;
+        const flower = generateFlower(i, usedPetals);
+        next[i] = flower;
+        usedPetals.push(flower.petal.name);
+      }
+
+      state.scheme = next;
+      clearUnconfirmedTodayPlacements();
+      state.schemeIndex += 1;
+      renderAll();
+      refreshSyncExport();
+      showToast('已生成新的三朵花配色');
+    }
+
+    function colorByName(name) {
+      return yarns.find((item) => item.name === name) || yarns[0];
+    }
+
+    function todayKey() {
+      const now = new Date();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      return `${now.getFullYear()}-${month}-${day}`;
+    }
+
+    function gridKey(row, col) {
+      return `${row}-${col}`;
+    }
+
+    function cellStyle(row, col) {
+      const rowOffset = row % 2 ? .5 : 0;
+      return {
+        left: `calc((var(--cell) + var(--gap)) * ${col + rowOffset})`,
+        top: `calc((var(--cell) + var(--gap)) * ${row})`,
+      };
+    }
+
+    function selectedFlower() {
+      return state.scheme[state.selectedFlowerIndex] || state.scheme[0];
+    }
+
+    function selectedBaseFlower() {
+      const petal = colorByName(state.selectedBasePetal);
+      const center = colorByName(state.selectedBaseCenter);
+      return { petal, center };
+    }
+
+    function clearUnconfirmedTodayPlacements() {
+      if (state.dailyEntries[todayKey()]) return;
+      removeEntryPlacements(todayKey());
+      persistGridPlacements();
+    }
+
+    function todayGridPlacements() {
+      return ['front', 'back'].flatMap((side) =>
+        Object.values(state.gridPlacements[side] || {}).filter((item) => item.date === todayKey())
+      );
+    }
+
+    function basePlacementCount() {
+      return Object.keys(state.basePlacements.front || {}).length + Object.keys(state.basePlacements.back || {}).length;
+    }
+
+    function createFlatFlower(item) {
+      const petal = item.petal || colorByName(item.petalName);
+      const center = item.center || colorByName(item.centerName);
+      const flower = document.createElement('div');
+      flower.className = 'flat-flower';
+      flower.style.setProperty('--petal', petal.hex);
+      flower.style.setProperty('--center', center.hex);
+      flower.style.setProperty('--turn', `${((item.row + 1) * 11 + item.col * 4) % 28 - 14}deg`);
+      flower.setAttribute('aria-label', `花瓣${petal.name}，花蕊${center.name}`);
+
+      for (let i = 0; i < 6; i += 1) {
+        const span = document.createElement('span');
+        span.className = 'flat-petal';
+        span.style.setProperty('--i', i);
+        flower.appendChild(span);
+      }
+      const core = document.createElement('span');
+      core.className = 'flat-center';
+      flower.appendChild(core);
+      return flower;
+    }
+
+    function placeBaseFlower(side, row, col) {
+      state.basePlacements[side] = state.basePlacements[side] || {};
+      const key = gridKey(row, col);
+      if (state.eraserMode) {
+        delete state.basePlacements[side][key];
+        persistBasePlacements();
+        renderGridBoards();
+        renderStep0Panel();
+        refreshSyncExport();
+        showToast('已清除第 0 步这个格子');
+        return;
+      }
+      const flower = selectedBaseFlower();
+      state.basePlacements[side][key] = {
+        side,
+        row,
+        col,
+        date: 'base',
+        petal: { name: flower.petal.name, hex: flower.petal.hex },
+        center: { name: flower.center.name, hex: flower.center.hex },
+      };
+      persistBasePlacements();
+      renderGridBoards();
+      renderStep0Panel();
+      refreshSyncExport();
+      showToast(`${side === 'front' ? '正面' : '反面'}第 ${row + 1} 行第 ${col + 1} 格已录入当前花朵`);
+    }
+
+    function placeSelectedFlower(side, row, col) {
+      if (state.dailyEntries[todayKey()]) {
+        showToast('今天已经确定过，删除当天日记后才能继续修改');
+        return;
+      }
+      if (state.eraserMode) {
+        const key = gridKey(row, col);
+        const existing = state.gridPlacements[side]?.[key];
+        if (existing?.date === todayKey()) {
+          delete state.gridPlacements[side][key];
+          persistGridPlacements();
+          renderGridBoards();
+          renderTodayPanel();
+          renderStep0Panel();
+          refreshSyncExport();
+          showToast('已移除这个格子的今日花朵');
+          return;
+        }
+        showToast('这个格子没有今日花朵可擦除');
+        return;
+      }
+      const flower = selectedFlower();
+      if (!flower) return;
+      state.gridPlacements[side] = state.gridPlacements[side] || {};
+      const key = gridKey(row, col);
+      const existing = state.gridPlacements[side][key];
+      if (existing?.date && existing.date !== todayKey()) {
+        showToast('这个格子已经记录在之前的日记里');
+        return;
+      }
+      if (existing?.date === todayKey() && existing.flowerIndex === state.selectedFlowerIndex) {
+        delete state.gridPlacements[side][key];
+        persistGridPlacements();
+        renderGridBoards();
+        renderTodayPanel();
+        showToast('已移除这个格子的今日花朵');
+        return;
+      }
+      state.gridPlacements[side][key] = {
+        side,
+        row,
+        col,
+        flowerIndex: state.selectedFlowerIndex,
+        date: todayKey(),
+        petal: { name: flower.petal.name, hex: flower.petal.hex },
+        center: { name: flower.center.name, hex: flower.center.hex },
+      };
+      persistGridPlacements();
+      renderGridBoards();
+      renderTodayPanel();
+      renderStep0Panel();
+      refreshSyncExport();
+      showToast(`${side === 'front' ? '正面' : '反面'}第 ${row + 1} 行第 ${col + 1} 格已放入第 ${state.selectedFlowerIndex + 1} 朵`);
+    }
+
+    function handleGridCellClick(side, row, col) {
+      if (state.editorMode === 'base') {
+        placeBaseFlower(side, row, col);
+        return;
+      }
+      placeSelectedFlower(side, row, col);
+    }
+
+    function renderGridBoards() {
+      ['front', 'back'].forEach((side) => {
+        const layer = $(`#${side}FaceLayer`);
+        if (!layer) return;
+        layer.innerHTML = '';
+        for (let row = 0; row < GRID_SIZE; row += 1) {
+          for (let col = 0; col < GRID_SIZE; col += 1) {
+            const key = gridKey(row, col);
+            const cell = document.createElement('button');
+            const position = cellStyle(row, col);
+            const todayPlaced = state.gridPlacements[side]?.[key];
+            const basePlaced = state.basePlacements[side]?.[key];
+            const placed = todayPlaced || basePlaced;
+            cell.type = 'button';
+            cell.className = `grid-cell interactive ${placed ? 'has-flower' : ''} ${basePlaced ? 'base-flower' : ''} ${todayPlaced ? 'today-flower' : ''}`;
+            cell.style.left = position.left;
+            cell.style.top = position.top;
+            cell.dataset.side = side;
+            cell.dataset.row = row;
+            cell.dataset.col = col;
+            cell.setAttribute('aria-label', `${side === 'front' ? '正面' : '反面'}第 ${row + 1} 行第 ${col + 1} 格`);
+            if (placed) cell.appendChild(createFlatFlower(placed));
+            cell.addEventListener('click', () => handleGridCellClick(side, row, col));
+            layer.appendChild(cell);
+          }
+        }
+      });
+      const label = $('#nextSlotLabel');
+      if (label) {
+        label.textContent = state.editorMode === 'base'
+          ? `第 0 步 ${basePlacementCount()} 朵`
+          : state.dailyEntries[todayKey()] ? '今日已确定' : `已放 ${todayGridPlacements().length}/3`;
+      }
+    }
+
+    function renderColorToolGroup(containerId, selectedName, onSelect) {
+      const container = $(`#${containerId}`);
+      if (!container) return;
+      container.innerHTML = yarns.map((yarn) => `
+        <button class="tool-chip soft-button interactive inline-flex items-center gap-2 border border-white/40 px-3 text-sm font-semibold glass ${selectedName === yarn.name ? 'active' : ''}" data-color="${yarn.name}">
+          <span class="swatch !h-7 !w-7" style="background:${yarn.hex}"></span>
+          ${yarn.name}
+        </button>
+      `).join('');
+      container.querySelectorAll('[data-color]').forEach((button) => {
+        button.addEventListener('click', () => {
+          onSelect(button.dataset.color);
+          state.eraserMode = false;
+          renderStep0Panel();
+        });
+      });
+    }
+
+    function renderStep0Panel() {
+      renderColorToolGroup('basePetalTools', state.selectedBasePetal, (name) => { state.selectedBasePetal = name; });
+      renderColorToolGroup('baseCenterTools', state.selectedBaseCenter, (name) => { state.selectedBaseCenter = name; });
+      $('#baseModeBtn')?.classList.toggle('active', state.editorMode === 'base');
+      $('#todayModeBtn')?.classList.toggle('active', state.editorMode === 'today');
+      $('#eraserBtn')?.classList.toggle('active', state.eraserMode);
+      const status = $('#step0Status');
+      if (status) {
+        const flower = selectedBaseFlower();
+        status.innerHTML = state.editorMode === 'base'
+          ? `当前为第 0 步录入模式：${state.eraserMode ? '擦除格子' : `花瓣 ${flower.petal.name}，花蕊 ${flower.center.name}`}。已录入当前包面 ${basePlacementCount()} 朵。`
+          : `当前为今日三朵模式：${state.eraserMode ? '擦除今日花朵' : '先点击下方第 1/2/3 朵配色卡片，再点格子放入'}。今日已放 ${todayGridPlacements().length}/3。`;
+      }
+    }
+
+    function setEditorMode(mode) {
+      state.editorMode = mode;
+      state.eraserMode = false;
+      renderGridBoards();
+      renderStep0Panel();
+      renderTodayPanel();
+      showToast(mode === 'base' ? '已切到第 0 步录入模式' : '已切到今日三朵放置模式');
+    }
+
+    function saveBaseStep() {
+      state.baseSaved = true;
+      localStorage.setItem('crochetBaseSaved', 'true');
+      persistBasePlacements();
+      renderStep0Panel();
+      refreshSyncExport();
+      showToast('第 0 步当前包面已保存');
+    }
+
+    function createFlowerElement(flower, index) {
+      const position = flowerPositions[index];
+      const wrapper = document.createElement('button');
+      wrapper.className = 'flower interactive';
+      wrapper.type = 'button';
+      wrapper.style.left = position.left;
+      wrapper.style.top = position.top;
+      wrapper.style.setProperty('--turn', position.turn);
+      wrapper.style.setProperty('--petal', flower.petal.hex);
+      wrapper.style.setProperty('--center', flower.center.hex);
+      wrapper.setAttribute('aria-label', `第${index + 1}朵花，花瓣${flower.petal.name}，花蕊${flower.center.name}`);
+
+      for (let i = 0; i < 6; i += 1) {
+        const petal = document.createElement('span');
+        petal.className = 'flower-petal';
+        petal.style.setProperty('--i', i);
+        wrapper.appendChild(petal);
+      }
+      const center = document.createElement('span');
+      center.className = 'flower-center';
+      wrapper.appendChild(center);
+      wrapper.addEventListener('click', () => toggleLock(index));
+      return wrapper;
+    }
+
+    function renderPreview() {
+      const layer = $('#flowerLayer');
+      if (layer) {
+        layer.innerHTML = '';
+        state.scheme.forEach((flower, index) => {
+          layer.appendChild(createFlowerElement(flower, index));
+        });
+      }
+      renderGridBoards();
+    }
+
+    function renderCards() {
+      const cards = $('#flowerCards');
+      cards.innerHTML = '';
+      state.scheme.forEach((flower, index) => {
+        const card = document.createElement('article');
+        card.className = `hover-lift rounded-[1.4rem] p-4 glass interactive ${state.selectedFlowerIndex === index ? 'ring-2 ring-pink-300' : ''}`;
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-semibold">第 ${index + 1} 朵</p>
+              <p class="mt-1 text-xs" style="color: var(--muted);">${state.selectedFlowerIndex === index ? '已选中，点击格子放入' : '点击选择这朵花'}</p>
+            </div>
+            <button class="lock-btn soft-button grid h-10 w-10 place-items-center bg-white/20" aria-label="${state.locked[index] ? '解锁' : '锁定'}第${index + 1}朵">
+              <i class="fa-solid ${state.locked[index] ? 'fa-lock' : 'fa-lock-open'}"></i>
+            </button>
+          </div>
+          <div class="mt-5 flex items-center gap-3">
+            <span class="swatch" style="background:${flower.petal.hex}"></span>
+            <div>
+              <p class="text-sm font-semibold">花瓣 · ${flower.petal.name}</p>
+              <p class="text-xs" style="color: var(--muted);">${flower.petal.text}</p>
+            </div>
+          </div>
+          <div class="mt-4 flex items-center gap-3">
+            <span class="swatch" style="background:${flower.center.hex}"></span>
+            <div>
+              <p class="text-sm font-semibold">花蕊 · ${flower.center.name}</p>
+              <p class="text-xs" style="color: var(--muted);">小面积点缀，决定花朵表情</p>
+            </div>
+          </div>
+        `;
+        card.querySelector('.lock-btn').addEventListener('click', (event) => {
+          event.stopPropagation();
+          toggleLock(index);
+        });
+        card.addEventListener('click', () => {
+          state.editorMode = 'today';
+          state.eraserMode = false;
+          state.selectedFlowerIndex = index;
+          renderGridBoards();
+          renderStep0Panel();
+          renderCards();
+          showToast(`已选择第 ${index + 1} 朵，点击格子放入`);
+        });
+        cards.appendChild(card);
+      });
+    }
+
+    function renderSaved() {
+      const list = $('#savedList');
+      if (!list) return;
+      const entries = Object.entries(state.dailyEntries).sort(([a], [b]) => b.localeCompare(a));
+      if (!entries.length) {
+        list.innerHTML = `<div class="rounded-[1.25rem] p-5 text-sm glass" style="color: var(--muted);">还没有日记。确认今天的三朵花后，这里会按日期留下配色、位置和备注。</div>`;
+        return;
+      }
+      list.innerHTML = entries.map(([date, item]) => {
+        const count = item.placements?.length || item.flowers?.length || 0;
+        return `
+        <article class="diary-entry rounded-[1.25rem] p-4 glass">
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-sm font-semibold">${date} · ${count} 个格子</p>
+            <button class="remove-saved soft-button grid h-9 w-9 place-items-center bg-white/20" data-date="${date}" aria-label="删除这天日记">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <p class="mt-3 text-sm leading-7" style="color: var(--muted);">${item.text}</p>
+          ${item.note ? `<p class="mt-2 rounded-2xl bg-white/20 px-3 py-2 text-sm leading-7">${item.note}</p>` : ''}
+        </article>
+      `;
+      }).join('');
+      $$('.remove-saved').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          removeEntryPlacements(btn.dataset.date);
+          delete state.dailyEntries[btn.dataset.date];
+          persistSaved();
+          persistGridPlacements();
+          renderSaved();
+          renderTodayPanel();
+          renderGridBoards();
+          refreshSyncExport();
+        });
+      });
+    }
+
+    function renderAll() {
+      renderPreview();
+      renderCards();
+      renderStep0Panel();
+      renderTodayPanel();
+      $('#comboCounter').dataset.target = Math.max(36, Math.round(108 * (state.harmony / 100)));
+      animateCounters();
+    }
+
+    function toggleLock(index) {
+      state.locked[index] = !state.locked[index];
+      renderAll();
+      showToast(state.locked[index] ? `已锁定第 ${index + 1} 朵花` : `已解锁第 ${index + 1} 朵花`);
+    }
+
+    function schemeText() {
+      return state.scheme.map((flower, index) => `第${index + 1}朵：花瓣${flower.petal.name}，花蕊${flower.center.name}`).join('；');
+    }
+
+    function encodeSyncData(data) {
+      const json = JSON.stringify(data);
+      return btoa(unescape(encodeURIComponent(json)));
+    }
+
+    function decodeSyncData(code) {
+      const json = decodeURIComponent(escape(atob(code.trim())));
+      return JSON.parse(json);
+    }
+
+    function buildSyncPayload() {
+      return {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        basePlacements: state.basePlacements,
+        baseSaved: state.baseSaved,
+        gridPlacements: state.gridPlacements,
+        dailyEntries: state.dailyEntries,
+        scheme: state.scheme.map((flower) => ({
+          petal: { name: flower.petal.name, hex: flower.petal.hex },
+          center: { name: flower.center.name, hex: flower.center.hex },
+        })),
+        locked: state.locked,
+        harmony: state.harmony,
+        mode: state.mode,
+        selectedBasePetal: state.selectedBasePetal,
+        selectedBaseCenter: state.selectedBaseCenter,
+        theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+      };
+    }
+
+    function refreshSyncExport() {
+      const field = $('#syncExport');
+      const status = $('#syncStatus');
+      if (!field) return;
+      field.value = encodeSyncData(buildSyncPayload());
+      if (status) {
+        status.textContent = `同步码已准备好。包含第 0 步 ${basePlacementCount()} 朵、今日 ${todayGridPlacements().length}/3、日记 ${Object.keys(state.dailyEntries).length} 天。`;
+      }
+    }
+
+    async function copySyncCode() {
+      refreshSyncExport();
+      const code = $('#syncExport').value;
+      try {
+        await navigator.clipboard.writeText(code);
+      } catch (error) {
+        $('#syncExport').focus();
+        $('#syncExport').select();
+        document.execCommand('copy');
+      }
+      showToast('同步码已复制');
+    }
+
+    function normalizeImportedPlacements(value) {
+      return {
+        front: value?.front && typeof value.front === 'object' ? value.front : {},
+        back: value?.back && typeof value.back === 'object' ? value.back : {},
+      };
+    }
+
+    function importSyncCode() {
+      const code = $('#syncImport')?.value || '';
+      if (!code.trim()) {
+        showToast('请先粘贴同步码');
+        return;
+      }
+      try {
+        const data = decodeSyncData(code);
+        if (!data || data.version !== 1) throw new Error('bad version');
+        state.basePlacements = normalizeImportedPlacements(data.basePlacements);
+        state.gridPlacements = normalizeImportedPlacements(data.gridPlacements);
+        state.dailyEntries = data.dailyEntries && typeof data.dailyEntries === 'object' ? data.dailyEntries : {};
+        state.baseSaved = Boolean(data.baseSaved);
+        state.locked = Array.isArray(data.locked) ? data.locked.slice(0, 3) : [false, false, false];
+        state.harmony = Number(data.harmony || 72);
+        state.mode = data.mode === 'bright' ? 'bright' : 'soft';
+        state.selectedBasePetal = colorByName(data.selectedBasePetal)?.name || '蓝色';
+        state.selectedBaseCenter = colorByName(data.selectedBaseCenter)?.name || '白色';
+        if (Array.isArray(data.scheme) && data.scheme.length === 3) {
+          state.scheme = data.scheme.map((flower, index) => ({
+            index,
+            petal: colorByName(flower.petal?.name),
+            center: colorByName(flower.center?.name),
+          }));
+        }
+        if (data.theme === 'dark' || data.theme === 'light') {
+          document.documentElement.classList.toggle('dark', data.theme === 'dark');
+          localStorage.setItem('crochetTheme', data.theme);
+          updateThemeIcon();
+        }
+        localStorage.setItem('crochetBaseSaved', String(state.baseSaved));
+        persistBasePlacements();
+        persistGridPlacements();
+        persistSaved();
+        $('#harmonyRange').value = state.harmony;
+        $('#harmonyValue').textContent = `${state.harmony}%`;
+        $('#progressBar').style.width = `${state.harmony}%`;
+        state.editorMode = 'base';
+        state.eraserMode = false;
+        renderAll();
+        renderSaved();
+        refreshSyncExport();
+        showToast('同步码已导入');
+      } catch (error) {
+        showToast('同步码无效，请重新复制');
+      }
+    }
+
+    async function copyScheme() {
+      const text = `今日编织包花朵配色：${schemeText()}。协调度：${state.harmony}%。`;
+      let copied = false;
+      showToast('正在复制配色...');
+      try {
+        if (navigator.clipboard?.writeText) {
+          await Promise.race([
+            navigator.clipboard.writeText(text),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('clipboard timeout')), 450)),
+          ]);
+          copied = true;
+        }
+      } catch (error) {
+        copied = false;
+      }
+
+      if (!copied) {
+        const temp = document.createElement('textarea');
+        temp.value = text;
+        temp.setAttribute('readonly', '');
+        temp.style.position = 'fixed';
+        temp.style.left = '-999px';
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        temp.remove();
+      }
+      showToast('配色内容已复制');
+    }
+
+    function updateConfirmSummary() {
+      const placed = todayGridPlacements();
+      const details = placed
+        .map((item) => `${item.side === 'front' ? '正面' : '反面'} ${item.row + 1} 行 ${item.col + 1} 格：第 ${item.flowerIndex + 1} 朵`)
+        .join('；');
+      const uniqueCount = new Set(placed.map((item) => item.flowerIndex)).size;
+      $('#confirmSummary') && ($('#confirmSummary').textContent = placed.length === 3 && uniqueCount === 3
+        ? `确认今天这三朵花的位置：${details}。`
+        : `今天需要把第 1、2、3 朵各放一次，目前已放 ${placed.length}/3，已使用 ${uniqueCount}/3 种今日花。`);
+    }
+
+    function renderTodayPanel() {
+      const entry = state.dailyEntries[todayKey()];
+      const placed = todayGridPlacements();
+      const status = $('#todayStatus');
+      if (status) {
+        const entryPositions = entry?.placementsText || '旧记录未保存格子位置';
+        status.innerHTML = entry
+          ? `今天已经确定：${entry.text}<br>位置：${entryPositions}。一天只保留一组确定方案。`
+          : `待确定：${schemeText()}<br>先在正反面 8×8 格子里放入今天的三朵花，目前已放 ${placed.length}/3。`;
+      }
+      const btns = ['openConfirmToday', 'commitTodayBtn'].map((id) => $(`#${id}`)).filter(Boolean);
+      btns.forEach((btn) => {
+        btn.disabled = Boolean(entry);
+        btn.classList.toggle('opacity-50', Boolean(entry));
+      });
+      if ($('#dailyFeedback')) {
+        $('#dailyFeedback').textContent = entry ? '今天已有确定记录；删除当天日记后才可以重新确定。' : '确认后会写入当天日记；同一天只能确定一组。';
+      }
+    }
+
+    function openConfirmModal() {
+      if (state.dailyEntries[todayKey()]) {
+        showToast('今天已经确定过一组配色');
+        return;
+      }
+      const placed = todayGridPlacements();
+      const uniqueCount = new Set(placed.map((item) => item.flowerIndex)).size;
+      if (placed.length !== 3 || uniqueCount !== 3) {
+        showToast('请先把第 1、2、3 朵各放一次');
+      }
+      updateConfirmSummary();
+      $('#confirmModal').classList.add('open');
+    }
+
+    function commitToday() {
+      const key = todayKey();
+      if (state.dailyEntries[key]) {
+        showToast('今天已经有确定记录');
+        return;
+      }
+      const placements = todayGridPlacements();
+      const uniqueCount = new Set(placements.map((item) => item.flowerIndex)).size;
+      if (placements.length !== 3 || uniqueCount !== 3) {
+        showToast('今天需要把第 1、2、3 朵各放一次后再确认');
+        updateConfirmSummary();
+        return;
+      }
+      const note = ($('#dailyNote')?.value || '').trim();
+      const placementsText = placements
+        .map((item) => `${item.side === 'front' ? '正面' : '反面'}${item.row + 1}-${item.col + 1}`)
+        .join('，');
+      state.dailyEntries[key] = {
+        dateLabel: new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }),
+        placements,
+        placementsText,
+        flowers: placements.map((item) => ({
+          side: item.side,
+          row: item.row,
+          col: item.col,
+          flowerIndex: item.flowerIndex,
+          petal: item.petal,
+          center: item.center,
+        })),
+        text: schemeText(),
+        note,
+      };
+      persistSaved();
+      persistGridPlacements();
+      renderSaved();
+      renderTodayPanel();
+      renderGridBoards();
+      refreshSyncExport();
+      $('#confirmModal').classList.remove('open');
+      showToast('今天的三朵花已添加到包包');
+    }
+
+    function saveScheme() {
+      openConfirmModal();
+    }
+
+    function persistSaved() {
+      localStorage.setItem('crochetDailyEntries', JSON.stringify(state.dailyEntries));
+    }
+
+    function persistGridPlacements() {
+      localStorage.setItem('crochetGridPlacements', JSON.stringify(state.gridPlacements));
+    }
+
+    function persistBasePlacements() {
+      localStorage.setItem('crochetBasePlacements', JSON.stringify(state.basePlacements));
+    }
+
+    function removeEntryPlacements(date) {
+      ['front', 'back'].forEach((side) => {
+        Object.entries(state.gridPlacements[side] || {}).forEach(([key, item]) => {
+          if (item.date === date) delete state.gridPlacements[side][key];
+        });
+      });
+    }
+
+    function showToast(message) {
+      const toast = $('#toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove('show'), 1900);
+    }
+
+    function animateCounters() {
+      $$('.counter').forEach((counter) => {
+        const target = Number(counter.dataset.target || 0);
+        const start = Number(counter.textContent || 0);
+        const duration = 760;
+        const started = performance.now();
+        function tick(now) {
+          const progress = Math.min(1, (now - started) / duration);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          counter.textContent = Math.round(start + (target - start) * eased);
+          if (progress < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      });
+    }
+
+    function initParticles() {
+      const canvas = $('#particleCanvas');
+      const ctx = canvas.getContext('2d');
+      const particles = Array.from({ length: 54 }, () => ({
+        x: Math.random(),
+        y: Math.random(),
+        r: Math.random() * 2.5 + .7,
+        vx: (Math.random() - .5) * .00035,
+        vy: (Math.random() - .5) * .00035,
+      }));
+
+      function resize() {
+        canvas.width = window.innerWidth * devicePixelRatio;
+        canvas.height = window.innerHeight * devicePixelRatio;
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach((p) => {
+          p.x = (p.x + p.vx + 1) % 1;
+          p.y = (p.y + p.vy + 1) % 1;
+          ctx.beginPath();
+          ctx.arc(p.x * canvas.width, p.y * canvas.height, p.r * devicePixelRatio, 0, Math.PI * 2);
+          ctx.fillStyle = document.documentElement.classList.contains('dark') ? 'rgba(226, 168, 193, .34)' : 'rgba(198, 91, 134, .22)';
+          ctx.fill();
+        });
+        requestAnimationFrame(draw);
+      }
+
+      window.addEventListener('resize', resize);
+      resize();
+      draw();
+    }
+
+    function initRevealAndParallax() {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) entry.target.classList.add('visible');
+        });
+      }, { threshold: .14 });
+      $$('.reveal').forEach((el, index) => {
+        el.style.transitionDelay = `${Math.min(index * 70, 260)}ms`;
+        observer.observe(el);
+      });
+
+      window.addEventListener('scroll', () => {
+        const y = window.scrollY;
+        $('#navbar').classList.toggle('nav-scrolled', y > 24);
+        $('#backTop').classList.toggle('opacity-0', y < 500);
+        $('#backTop').classList.toggle('translate-y-4', y < 500);
+
+        $$('.parallax').forEach((el) => {
+          const speed = Number(el.dataset.speed || 0);
+          el.style.transform = `translate3d(0, ${y * speed}px, 0)`;
+        });
+      }, { passive: true });
+    }
+
+    function initCursor() {
+      window.addEventListener('pointermove', (event) => {
+        document.documentElement.style.setProperty('--mouse-x', `${(event.clientX / window.innerWidth) * 100}%`);
+        document.documentElement.style.setProperty('--mouse-y', `${(event.clientY / window.innerHeight) * 100}%`);
+      }, { passive: true });
+    }
+
+    function initSwipe() {
+      const area = $('#swipeArea');
+      let startX = 0;
+      let startY = 0;
+      area.addEventListener('touchstart', (event) => {
+        startX = event.touches[0].clientX;
+        startY = event.touches[0].clientY;
+      }, { passive: true });
+      area.addEventListener('touchend', (event) => {
+        const dx = event.changedTouches[0].clientX - startX;
+        const dy = event.changedTouches[0].clientY - startY;
+        if (Math.abs(dx) > 52 && Math.abs(dx) > Math.abs(dy)) generateScheme();
+      }, { passive: true });
+    }
+
+    function attachLongPress(element, callback) {
+      let timer;
+      const start = () => {
+        timer = setTimeout(() => {
+          element.classList.add('tap-feedback');
+          callback();
+          setTimeout(() => element.classList.remove('tap-feedback'), 220);
+        }, 650);
+      };
+      const cancel = () => clearTimeout(timer);
+      element.addEventListener('pointerdown', start);
+      element.addEventListener('pointerup', cancel);
+      element.addEventListener('pointerleave', cancel);
+      element.addEventListener('pointercancel', cancel);
+    }
+
+    function initForm() {
+      const note = $('#dailyNote');
+      if (!note) return;
+
+      function validate() {
+        const length = note.value.trim().length;
+        if (!length) {
+          $('#dailyFeedback').textContent = state.dailyEntries[todayKey()] ? '今天已有确定记录；删除当天日记后才可以重新确定。' : '可以不写日记，直接确定今天的三朵花。';
+          $('#dailyFeedback').style.color = 'var(--muted)';
+          return;
+        }
+        $('#dailyFeedback').textContent = length >= 6 ? '这条日记会随今天的确定配色一起保存。' : '再多写几个字，会更方便之后回看。';
+        $('#dailyFeedback').style.color = length >= 6 ? '#4f9b69' : 'var(--muted)';
+      }
+
+      note.addEventListener('input', validate);
+      validate();
+    }
+
+    function bindEvents() {
+      $('#themeToggle').addEventListener('click', () => {
+        document.documentElement.classList.toggle('dark');
+        localStorage.setItem('crochetTheme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+        updateThemeIcon();
+      });
+      ['generateBtn', 'quickGenerate', 'prevScheme', 'nextScheme', 'modalGenerate'].forEach((id) => {
+        $(`#${id}`).addEventListener('click', generateScheme);
+      });
+      ['copyBtn', 'copyFloating'].forEach((id) => $(`#${id}`).addEventListener('click', copyScheme));
+      $('#copySyncBtn').addEventListener('click', copySyncCode);
+      $('#importSyncBtn').addEventListener('click', importSyncCode);
+      $('#favoriteBtn').addEventListener('click', saveScheme);
+      $('#baseModeBtn').addEventListener('click', () => setEditorMode('base'));
+      $('#todayModeBtn').addEventListener('click', () => setEditorMode('today'));
+      $('#saveBaseBtn').addEventListener('click', saveBaseStep);
+      $('#eraserBtn').addEventListener('click', () => {
+        state.eraserMode = !state.eraserMode;
+        renderStep0Panel();
+        showToast(state.eraserMode ? '擦除工具已开启' : '擦除工具已关闭');
+      });
+      $('#openConfirmToday').addEventListener('click', openConfirmModal);
+      $('#commitTodayBtn').addEventListener('click', commitToday);
+      $('#closeConfirmModal').addEventListener('click', () => $('#confirmModal').classList.remove('open'));
+      $('#confirmModal').addEventListener('click', (event) => {
+        if (event.target.id === 'confirmModal') $('#confirmModal').classList.remove('open');
+      });
+      $('#resetLocks').addEventListener('click', () => {
+        state.locked = [false, false, false];
+        renderAll();
+        showToast('三朵花都已解锁');
+      });
+      $('#harmonyRange').addEventListener('input', (event) => {
+        state.harmony = Number(event.target.value);
+        $('#harmonyValue').textContent = `${state.harmony}%`;
+        $('#progressBar').style.width = `${state.harmony}%`;
+      });
+      $('#harmonyRange').addEventListener('change', generateScheme);
+      $('#accordionToggle').addEventListener('click', () => {
+        const panel = $('#accordionPanel');
+        const open = panel.style.maxHeight && panel.style.maxHeight !== '0px';
+        panel.style.maxHeight = open ? '0px' : `${panel.scrollHeight}px`;
+        $('#accordionIcon').style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+      });
+      $$('.tab-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.mode = btn.dataset.tab;
+          $$('.tab-btn').forEach((item) => item.classList.toggle('bg-white/30', item === btn));
+          $('#tabText').textContent = state.mode === 'soft'
+            ? '柔和模式会优先选蓝、白、粉、绿做大面积花瓣，黄色和玫红色作为点睛。'
+            : '明快模式会提高黄色、玫红色、蓝色出现概率，适合想让包面更跳一点的时候。';
+          generateScheme();
+        });
+      });
+      $('#openModal').addEventListener('click', () => $('#infoModal').classList.add('open'));
+      $('#closeModal').addEventListener('click', () => $('#infoModal').classList.remove('open'));
+      $('#infoModal').addEventListener('click', (event) => {
+        if (event.target.id === 'infoModal') $('#infoModal').classList.remove('open');
+      });
+      $('#backTop').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+      $('#clearSaved').addEventListener('click', () => {
+        state.dailyEntries = {};
+        persistSaved();
+        state.gridPlacements = { front: {}, back: {} };
+        persistGridPlacements();
+        renderSaved();
+        renderTodayPanel();
+        renderGridBoards();
+        refreshSyncExport();
+        showToast('日记已清空');
+      });
+    }
+
+    function init() {
+      initTheme();
+      $('#todayText').textContent = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+      renderSaved();
+      bindEvents();
+      initParticles();
+      initRevealAndParallax();
+      initCursor();
+      initSwipe();
+      initForm();
+      generateScheme();
+      refreshSyncExport();
+      setTimeout(() => $('#loader').classList.add('is-hidden'), 650);
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
